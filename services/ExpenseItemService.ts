@@ -1,0 +1,264 @@
+import { ExpenseItem } from "@/types/types";
+import {
+  getCurrentEpoch,
+  getEpochRangeForThisMonth,
+  getEpochRangeForToday,
+} from "@/utils/util";
+import * as SQLite from "expo-sqlite";
+
+const DATABASE_NAME = "expenses.db";
+const TABLE_EXPENSE_ITEMS = "expense_items";
+const TABLE_CATEGORIES = "categories";
+const TABLE_CURRENCIES = "currencies";
+
+const COL_ID = "id";
+const COL_NAME = "name";
+const COL_PRICE = "price";
+const COL_QUANTITY = "quantity";
+const COL_CATEGORY_ID = "category_id";
+const COL_CURRENCY_ID = "currency_id";
+const COL_CREATED_AT = "created_at";
+
+let db: SQLite.SQLiteDatabase;
+
+const ensureDbReady = () => {
+  if (!db) throw new Error("Database not initialized");
+  console.log("ExpenseItemService.ensureDbReady(): database is ready");
+};
+
+const calculateTotal = (item: ExpenseItem) => ({
+  ...item,
+  total: item.quantity * item.price,
+});
+
+const fetchExpensesInRange = async (
+  startEpoch: number,
+  endEpoch: number
+): Promise<ExpenseItem[]> => {
+  ensureDbReady();
+  try {
+    const items = await db.getAllAsync<ExpenseItem>(
+      `SELECT * FROM ${TABLE_EXPENSE_ITEMS} WHERE ${COL_CREATED_AT} BETWEEN ? AND ?`,
+      startEpoch,
+      endEpoch
+    );
+    return items.map(calculateTotal);
+  } catch (err) {
+    console.error("fetchExpensesInRange failed:", err);
+    return [];
+  }
+};
+
+const getEpochRangeFromDateRange = (start: Date, end: Date) => [
+  Math.floor(start.getTime() / 1000),
+  Math.floor(end.getTime() / 1000),
+];
+
+export const ExpenseItemService = {
+  async init(): Promise<void> {
+    if (db) return;
+    try {
+      db = await SQLite.openDatabaseAsync(DATABASE_NAME);
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS ${TABLE_EXPENSE_ITEMS} (
+          ${COL_ID} INTEGER PRIMARY KEY AUTOINCREMENT,
+          ${COL_NAME} TEXT NOT NULL,
+          ${COL_PRICE} REAL NOT NULL,
+          ${COL_QUANTITY} INTEGER NOT NULL DEFAULT 1,
+          ${COL_CATEGORY_ID} INTEGER NOT NULL,
+          ${COL_CURRENCY_ID} INTEGER NOT NULL,
+          ${COL_CREATED_AT} INTEGER NOT NULL,
+          FOREIGN KEY (${COL_CATEGORY_ID}) REFERENCES ${TABLE_CATEGORIES}(${COL_ID}),
+          FOREIGN KEY (${COL_CURRENCY_ID}) REFERENCES ${TABLE_CURRENCIES}(${COL_ID})
+        );
+      `);
+    } catch (err) {
+      console.error("Database initialization failed:", err);
+    }
+  },
+
+  async fetchExpensesInRange(
+    startEpoch: number,
+    endEpoch: number
+  ): Promise<ExpenseItem[]> {
+    return fetchExpensesInRange(startEpoch, endEpoch);
+  },
+
+  async resetAndSeedMockData(): Promise<void> {
+    ensureDbReady();
+    try {
+      await db.execAsync(`DELETE FROM ${TABLE_EXPENSE_ITEMS};`);
+      const now = new Date();
+      const baseTime =
+        new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate() - 9
+        ).getTime() / 1000;
+      const insertSQL = `
+        INSERT INTO ${TABLE_EXPENSE_ITEMS} 
+        (${COL_NAME}, ${COL_PRICE}, ${COL_QUANTITY}, ${COL_CATEGORY_ID}, ${COL_CURRENCY_ID}, ${COL_CREATED_AT})
+        VALUES (?, ?, ?, ?, ?, ?);
+      `;
+      for (let day = 0; day < 10; day++) {
+        const dayEpoch = baseTime + day * 86400;
+        for (let i = 0; i < 10; i++) {
+          const item: ExpenseItem = {
+            name: `Mock Item ${day * 10 + i + 1}`,
+            price: parseFloat((Math.random() * 100).toFixed(2)),
+            quantity: Math.floor(Math.random() * 5) + 1,
+            category_id: 1,
+            currency_id: 1,
+            created_at: dayEpoch + i * 300,
+            total: 0,
+          };
+          await db.runAsync(
+            insertSQL,
+            item.name,
+            item.price,
+            item.quantity,
+            item.category_id,
+            item.currency_id,
+            item.created_at
+          );
+        }
+      }
+    } catch (err) {
+      console.error("resetAndSeedMockData failed:", err);
+    }
+  },
+
+  async add(item: Omit<ExpenseItem, "id" | "created_at">): Promise<number> {
+    ensureDbReady();
+    try {
+      const epoch = getCurrentEpoch();
+      const result = await db.runAsync(
+        `INSERT INTO ${TABLE_EXPENSE_ITEMS} (${COL_NAME}, ${COL_PRICE}, ${COL_QUANTITY}, ${COL_CATEGORY_ID}, ${COL_CURRENCY_ID}, ${COL_CREATED_AT}) VALUES (?, ?, ?, ?, ?, ?)`,
+        item.name,
+        item.price,
+        item.quantity,
+        item.category_id,
+        item.currency_id,
+        epoch
+      );
+      return result.lastInsertRowId!;
+    } catch (err) {
+      console.error("add failed:", err);
+      return -1;
+    }
+  },
+
+  async getAll(): Promise<ExpenseItem[]> {
+    ensureDbReady();
+    try {
+      const items = await db.getAllAsync<ExpenseItem>(
+        `SELECT * FROM ${TABLE_EXPENSE_ITEMS} ORDER BY ${COL_CREATED_AT} DESC`
+      );
+      return items.map(calculateTotal);
+    } catch (err) {
+      console.error("getAll failed:", err);
+      return [];
+    }
+  },
+
+  async remove(id: number): Promise<void> {
+    ensureDbReady();
+    try {
+      await db.runAsync(
+        `DELETE FROM ${TABLE_EXPENSE_ITEMS} WHERE ${COL_ID} = ?`,
+        id
+      );
+    } catch (err) {
+      console.error("remove failed:", err);
+    }
+  },
+
+  async getThisMonthExpense(): Promise<number> {
+    const [start, end] = getEpochRangeForThisMonth();
+    return fetchExpensesInRange(start, end).then((items) =>
+      items.reduce((sum, i) => sum + i.total, 0)
+    );
+  },
+
+  async getTodayExpense(): Promise<ExpenseItem[]> {
+    const [start, end] = getEpochRangeForToday();
+    return fetchExpensesInRange(start, end);
+  },
+
+  async updateQuantity(id: number, newQuantity: number): Promise<void> {
+    ensureDbReady();
+    try {
+      await db.runAsync(
+        `UPDATE ${TABLE_EXPENSE_ITEMS} SET ${COL_QUANTITY} = ? WHERE ${COL_ID} = ?`,
+        newQuantity,
+        id
+      );
+    } catch (err) {
+      console.error("updateQuantity failed:", err);
+    }
+  },
+
+  async incrementQuantity(id: number): Promise<void> {
+    ensureDbReady();
+    console.log("ExpenseItemService.incrementQuantity() is invoked");
+    try {
+      await db.runAsync(
+        `UPDATE ${TABLE_EXPENSE_ITEMS} SET ${COL_QUANTITY} = ${COL_QUANTITY} + 1 WHERE ${COL_ID} = ?`,
+        id
+      );
+      console.log("ExpenseItemService.incrementQuantity() is successful");
+    } catch (err) {
+      console.error("incrementQuantity failed:", err);
+    }
+  },
+
+  async decrementQuantity(id: number): Promise<void> {
+    ensureDbReady();
+    try {
+      await db.runAsync(
+        `UPDATE ${TABLE_EXPENSE_ITEMS} SET ${COL_QUANTITY} = CASE WHEN ${COL_QUANTITY} > 1 THEN ${COL_QUANTITY} - 1 ELSE 1 END WHERE ${COL_ID} = ?`,
+        id
+      );
+    } catch (err) {
+      console.error("decrementQuantity failed:", err);
+    }
+  },
+
+  async getDailyTotalExpense(date: Date): Promise<number> {
+    const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const end = new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      23,
+      59,
+      59
+    );
+    return this.getTotalExpenseByRange(start, end);
+  },
+
+  async getMonthlyTotalExpense(date: Date): Promise<number> {
+    const start = new Date(date.getFullYear(), date.getMonth(), 1);
+    const end = new Date(
+      date.getFullYear(),
+      date.getMonth() + 1,
+      0,
+      23,
+      59,
+      59
+    );
+    return this.getTotalExpenseByRange(start, end);
+  },
+
+  async getYearlyTotalExpense(date: Date): Promise<number> {
+    const start = new Date(date.getFullYear(), 0, 1);
+    const end = new Date(date.getFullYear(), 11, 31, 23, 59, 59);
+    return this.getTotalExpenseByRange(start, end);
+  },
+
+  async getTotalExpenseByRange(start: Date, end: Date): Promise<number> {
+    const [startEpoch, endEpoch] = getEpochRangeFromDateRange(start, end);
+    const items = await fetchExpensesInRange(startEpoch, endEpoch);
+    return items.reduce((sum, i) => sum + i.total, 0);
+  },
+};
