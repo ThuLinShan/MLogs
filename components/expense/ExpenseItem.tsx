@@ -1,11 +1,11 @@
 import { icons } from "@/constants/icons";
 import { ExpenseItemService } from "@/services/ExpenseItemService"; // adjust the path if needed
-import { ExpenseItem } from "@/types/types";
+import { ExpenseItemType } from "@/types/types";
 import React from "react";
 import { Image, Text, TouchableOpacity, View } from "react-native";
 
 type ExpenseItemProps = {
-  item: ExpenseItem;
+  item: ExpenseItemType;
   onDelete: (id: number) => void;
   onQuantityChange: () => void; // callback to reload data
   categoryName?: string;
@@ -13,7 +13,7 @@ type ExpenseItemProps = {
   currencySymbol?: string;
 };
 
-const ExpenseItemComponent: React.FC<ExpenseItemProps> = ({
+const ExpenseItem: React.FC<ExpenseItemProps> = ({
   item,
   onDelete,
   onQuantityChange,
@@ -33,7 +33,7 @@ const ExpenseItemComponent: React.FC<ExpenseItemProps> = ({
     <View className="p-4 flex-row flex-wrap justify-between align-middle border-1 border-b border-dark">
       {/* Name and Price Section (40%) */}
       <View
-        className="flex flex-wrap flex-row items-center justify-center content-center"
+        className="flex flex-wrap flex-row items-start justify-center content-center"
         style={{ width: "40%" }}
       >
         <Text className="text-green text-lg flex-shrink">{item.name}</Text>
@@ -77,4 +77,4 @@ const ExpenseItemComponent: React.FC<ExpenseItemProps> = ({
   );
 };
 
-export default ExpenseItemComponent;
+export default ExpenseItem;

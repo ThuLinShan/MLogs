@@ -1,9 +1,9 @@
-import ExpenseItemComponent from "@/components/ExpenseItem";
+import ExpenseItem from "@/components/expense/ExpenseItem";
 import { icons } from "@/constants/icons";
 import { CurrencyService } from "@/services/CurrencyService";
 import { ExpenseCategoryService } from "@/services/ExpenseCategoryService";
 import { ExpenseItemService } from "@/services/ExpenseItemService";
-import { Currency, ExpenseCategory, ExpenseItem } from "@/types/types";
+import { Currency, ExpenseCategory, ExpenseItemType } from "@/types/types";
 import { useFocusEffect } from "@react-navigation/native";
 import { format } from "date-fns";
 import { Link } from "expo-router";
@@ -19,9 +19,12 @@ import {
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 
 const ExpenseMain: React.FC = () => {
-  const [items, setItems] = useState<ExpenseItem[]>([]);
+  const [items, setItems] = useState<ExpenseItemType[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
-  const [currencies, setCurrencies] = useState<Currency[]>([]);
+  const [selectedCurrency, setSelectedCurrency] = useState<Currency | null>(
+    null
+  );
+
   const [monthlyTotalExpense, setMonthlyTotalExpense] = useState(0);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isDatePickerVisible, setDatePickerVisible] = useState(false);
@@ -74,10 +77,19 @@ const ExpenseMain: React.FC = () => {
     setCategories(cats);
   };
 
-  const loadCurrencies = async () => {
-    await CurrencyService.init();
-    const data = await CurrencyService.getAll();
-    setCurrencies(data);
+  const loadSelectedCurrency = async () => {
+    await CurrencyService.init(); // Initialize DB and default currency
+    const currency = await CurrencyService.getSelectedCurrency();
+    console.log(
+      "ExpenseMain.loadSelectedCurrency: is successful. currency: ",
+      currency
+    );
+    setSelectedCurrency(currency);
+    console.log(
+      "ExpenseMain.loadSelectedCurrency: selectedCurrency: ",
+      selectedCurrency
+    );
+    await CurrencyService.close();
   };
 
   const deleteItem = async (id: number) => {
@@ -89,7 +101,7 @@ const ExpenseMain: React.FC = () => {
     (async () => {
       await ExpenseItemService.init();
       await loadCategories();
-      await loadCurrencies();
+      await loadSelectedCurrency();
       await fetchExpensesForSelectedDate(selectedDate);
       await fetchMonthlyTotalExpense(selectedDate);
     })();
@@ -97,7 +109,9 @@ const ExpenseMain: React.FC = () => {
 
   useFocusEffect(
     useCallback(() => {
+      loadSelectedCurrency();
       fetchExpensesForSelectedDate(selectedDate);
+      fetchMonthlyTotalExpense(selectedDate);
       return () => {};
     }, [selectedDate])
   );
@@ -105,11 +119,14 @@ const ExpenseMain: React.FC = () => {
   return (
     <View className="py-12 px-1">
       {/* Inlined ExpenseHeader content */}
-      <View className="flex-row justify-between items-center p-5 rounded-xl border-b-4 border-r-2 border-dark">
-        <View className="flex-col justify-center items-center">
+      <View
+        className="flex-row justify-between items-center p-5 rounded-xl border-b-4 border-r-2 border-dark"
+        style={{ height: "12%" }}
+      >
+        <View className="flex-col justify-center items-start">
           <Text className="text-white text-l font-thin">Monthly Total</Text>
           <Text className="text-white text-2xl font-bold">
-            {monthlyTotalExpense.toFixed(2)} {currencies[0]?.symbol ?? ""}
+            {monthlyTotalExpense.toFixed(2)} {selectedCurrency?.symbol ?? ""}
           </Text>
         </View>
         <View className="flex-col justify-center text-center items-center">
@@ -118,9 +135,9 @@ const ExpenseMain: React.FC = () => {
           </Text>
           <TouchableOpacity
             onPress={() => setDatePickerVisible(true)}
-            className="bg-white border-2 border-action p-1 rounded-full w-[80px] items-center"
+            className="bg-white border-2 border-action p-1 rounded-full w-[60px] flex-row justify-center items-center"
           >
-            <Image source={icons.calendar} className="size-8 mr-1 mt-0.5" />
+            <Image source={icons.calendar} className="size-8" />
           </TouchableOpacity>
         </View>
 
@@ -135,7 +152,7 @@ const ExpenseMain: React.FC = () => {
 
       <Text className="text-white text-sm mt-4 ms-4 mb-2">
         Daily Total: {totalExpense}
-        {currencies[0]?.symbol ?? ""}
+        {selectedCurrency?.symbol ?? ""}
       </Text>
 
       <View
@@ -158,12 +175,10 @@ const ExpenseMain: React.FC = () => {
               const category = categories.find(
                 (c) => c.id === item.category_id
               );
-              const currency = currencies.find(
-                (c) => c.id === item.currency_id
-              );
+              const currency = selectedCurrency;
 
               return (
-                <ExpenseItemComponent
+                <ExpenseItem
                   item={item}
                   onDelete={deleteItem}
                   categoryName={category?.name}
@@ -182,7 +197,7 @@ const ExpenseMain: React.FC = () => {
         {/* Add Item Button */}
         <Link href={`/expense/add_expense`} asChild>
           <TouchableOpacity
-            className="bg-action p-4 flex-row justify-center items-center w-[120px] rounded-full absolute right-6 border-2 border-dark_sec"
+            className="bg-action p-4 flex-row justify-center items-center w-[120px] rounded-full absolute right-6"
             style={{ bottom: -20 }}
           >
             <Text className="text-white px-2">Add Item</Text>

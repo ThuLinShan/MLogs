@@ -6,9 +6,9 @@ import { Image, Text, View } from "react-native";
 const TabIcon = ({ focused, icon, title }: any) => {
   if (focused) {
     return (
-      <View className="w-[115px] flex flex-row flex-1 min-h-16 mt-4 justify-center items-center rounded-full overflow-hidden bg-light_green ">
-        <Image source={icon} tintColor="" className="size-5" />
-        <Text className="text-primary text-base ml-2">{title}</Text>
+      <View className="w-[115px] flex flex-row flex-1 min-h-16 mt-4 justify-center items-center rounded-full overflow-hidden bg-white ">
+        <Image source={icon} className="size-5" />
+        <Text className="text-primary text-base ml-2 underline">{title}</Text>
       </View>
     );
   } else {

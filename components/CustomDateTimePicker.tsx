@@ -19,12 +19,12 @@ const CustomDateTimePicker: React.FC<Props> = ({ label, date, onConfirm }) => {
 
   return (
     <View className="my-2">
-      <Text className="mb-1 font-semibold">{label}</Text>
+      <Text className="mb-1 text-light_green font-semibold">{label}</Text>
       <TouchableOpacity
-        className="border border-gray-400 p-3 rounded-md"
+        className="border border-light_green p-3 rounded-lg"
         onPress={() => setPickerVisible(true)}
       >
-        <Text>
+        <Text className="text-light_green">
           {date ? date.toLocaleString() : "Tap to select date and time"}
         </Text>
       </TouchableOpacity>

@@ -1,10 +1,10 @@
 export type TodoItemType = {
-  id?: number;
+  id: number;
   title: string;
   description: string;
-  created_at?: string;
+  created_at: string;
   completed: boolean;
-  remind_at?: string | null; // ISO 8601 string, nullable
+  deadline: number | null;
 };
 
 // src/services/types.ts
@@ -13,7 +13,7 @@ export type ExpenseCategory = {
   name: string;
 };
 
-export type ExpenseItem = {
+export type ExpenseItemType = {
   id?: number;
   name: string;
   price: number;

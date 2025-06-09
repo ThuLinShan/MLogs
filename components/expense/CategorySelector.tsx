@@ -2,8 +2,14 @@
 
 import { ExpenseCategory } from "@/types/types";
 import React, { useEffect, useState } from "react";
-import { Button, FlatList, Text, TextInput, View } from "react-native";
-import { ExpenseCategoryService } from "../services/ExpenseCategoryService";
+import {
+  FlatList,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { ExpenseCategoryService } from "../../services/ExpenseCategoryService";
 
 type CategorySelectorProps = {
   onSelect: (category: ExpenseCategory) => void;
@@ -45,7 +51,7 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
       className="flex-1 justify-center items-center drop-shadow-lg"
       style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
     >
-      <View className="w-full max-h-[80%] bg-primary p-6 rounded-lg  border-solid border-2 border-blue_green">
+      <View className="w-full max-h-[80%] bg-dark_sec p-6 rounded-lg ">
         <FlatList
           data={categories}
           keyExtractor={(item) => item.id!.toString()}
@@ -61,10 +67,12 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
               >
                 {item.name}
               </Text>
-              <Button
-                title="Delete"
+              <TouchableOpacity
+                className=""
                 onPress={() => handleDeleteCategory(item.id!)}
-              />
+              >
+                <Text className="text-action-500 underline">Delete</Text>
+              </TouchableOpacity>
             </View>
           )}
           className="mb-4"
@@ -75,10 +83,21 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
           placeholder="New Category"
           value={newCategoryName}
           onChangeText={setNewCategoryName}
-          className="bg-white text-black rounded px-3 py-2 mb-2"
+          className="bg-white text-black rounded px-3 py-2 mb-8"
         />
-        <Button title="Add Category" onPress={handleAddCategory} />
-        <Button title="Close" onPress={onClose} />
+        <TouchableOpacity
+          className="bg-primary mb-4 items-center py-2 rounded-md"
+          onPress={handleAddCategory}
+        >
+          <Text className="text-white">Add Category</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          className="bg-primary mb-4 items-center py-2 rounded-md"
+          onPress={onClose}
+        >
+          <Text className="text-white">Close</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );

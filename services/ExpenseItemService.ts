@@ -1,4 +1,4 @@
-import { ExpenseItem } from "@/types/types";
+import { ExpenseItemType } from "@/types/types";
 import {
   getCurrentEpoch,
   getEpochRangeForThisMonth,
@@ -26,7 +26,7 @@ const ensureDbReady = () => {
   console.log("ExpenseItemService.ensureDbReady(): database is ready");
 };
 
-const calculateTotal = (item: ExpenseItem) => ({
+const calculateTotal = (item: ExpenseItemType) => ({
   ...item,
   total: item.quantity * item.price,
 });
@@ -34,10 +34,10 @@ const calculateTotal = (item: ExpenseItem) => ({
 const fetchExpensesInRange = async (
   startEpoch: number,
   endEpoch: number
-): Promise<ExpenseItem[]> => {
+): Promise<ExpenseItemType[]> => {
   ensureDbReady();
   try {
-    const items = await db.getAllAsync<ExpenseItem>(
+    const items = await db.getAllAsync<ExpenseItemType>(
       `SELECT * FROM ${TABLE_EXPENSE_ITEMS} WHERE ${COL_CREATED_AT} BETWEEN ? AND ?`,
       startEpoch,
       endEpoch
@@ -58,7 +58,9 @@ export const ExpenseItemService = {
   async init(): Promise<void> {
     if (db) return;
     try {
-      db = await SQLite.openDatabaseAsync(DATABASE_NAME);
+      db = await SQLite.openDatabaseAsync(DATABASE_NAME, {
+        useNewConnection: true,
+      });
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS ${TABLE_EXPENSE_ITEMS} (
           ${COL_ID} INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -76,11 +78,22 @@ export const ExpenseItemService = {
       console.error("Database initialization failed:", err);
     }
   },
+  async close(): Promise<void> {
+    if (!db) return;
+    try {
+      await db.closeAsync();
+      console.log("ExpenseItemService: DB closed");
+    } catch (err) {
+      console.error("ExpenseItemService.close() failed:", err);
+    } finally {
+      db = undefined!;
+    }
+  },
 
   async fetchExpensesInRange(
     startEpoch: number,
     endEpoch: number
-  ): Promise<ExpenseItem[]> {
+  ): Promise<ExpenseItemType[]> {
     return fetchExpensesInRange(startEpoch, endEpoch);
   },
 
@@ -103,7 +116,7 @@ export const ExpenseItemService = {
       for (let day = 0; day < 10; day++) {
         const dayEpoch = baseTime + day * 86400;
         for (let i = 0; i < 10; i++) {
-          const item: ExpenseItem = {
+          const item: ExpenseItemType = {
             name: `Mock Item ${day * 10 + i + 1}`,
             price: parseFloat((Math.random() * 100).toFixed(2)),
             quantity: Math.floor(Math.random() * 5) + 1,
@@ -128,7 +141,7 @@ export const ExpenseItemService = {
     }
   },
 
-  async add(item: Omit<ExpenseItem, "id" | "created_at">): Promise<number> {
+  async add(item: Omit<ExpenseItemType, "id" | "created_at">): Promise<number> {
     ensureDbReady();
     try {
       const epoch = getCurrentEpoch();
@@ -148,10 +161,10 @@ export const ExpenseItemService = {
     }
   },
 
-  async getAll(): Promise<ExpenseItem[]> {
+  async getAll(): Promise<ExpenseItemType[]> {
     ensureDbReady();
     try {
-      const items = await db.getAllAsync<ExpenseItem>(
+      const items = await db.getAllAsync<ExpenseItemType>(
         `SELECT * FROM ${TABLE_EXPENSE_ITEMS} ORDER BY ${COL_CREATED_AT} DESC`
       );
       return items.map(calculateTotal);
@@ -180,7 +193,7 @@ export const ExpenseItemService = {
     );
   },
 
-  async getTodayExpense(): Promise<ExpenseItem[]> {
+  async getTodayExpense(): Promise<ExpenseItemType[]> {
     const [start, end] = getEpochRangeForToday();
     return fetchExpensesInRange(start, end);
   },

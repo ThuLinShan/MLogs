@@ -1,7 +1,16 @@
+// services/ExpenseCategoryService.ts
 import { ExpenseCategory } from "@/types/types";
 import * as SQLite from "expo-sqlite";
 
-const defaultCategories = [
+// Constants
+const DB_NAME = "expenses.db";
+const TABLE_CATEGORIES = "categories";
+
+const COL_ID = "id";
+const COL_NAME = "name";
+const COL_CREATED_AT = "created_at";
+
+const DEFAULT_CATEGORIES = [
   "Food",
   "Transportation",
   "Medication",
@@ -11,47 +20,96 @@ const defaultCategories = [
   "Other",
 ];
 
-export class ExpenseCategoryService {
-  private static db: SQLite.SQLiteDatabase;
+let db: SQLite.SQLiteDatabase;
 
-  static async init() {
-    if (!this.db) {
-      this.db = await SQLite.openDatabaseAsync("expenses.db");
+const ensureDbReady = () => {
+  if (!db) throw new Error("ExpenseCategoryService: Database not initialized");
+};
+
+export const ExpenseCategoryService = {
+  async init(): Promise<void> {
+    if (db) return;
+
+    try {
+      db = await SQLite.openDatabaseAsync(DB_NAME, {
+        useNewConnection: true,
+      });
+
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS ${TABLE_CATEGORIES} (
+          ${COL_ID} INTEGER PRIMARY KEY AUTOINCREMENT,
+          ${COL_NAME} TEXT NOT NULL UNIQUE,
+          ${COL_CREATED_AT} TEXT NOT NULL
+        );
+      `);
+
+      for (const name of DEFAULT_CATEGORIES) {
+        await db.runAsync(
+          `INSERT OR IGNORE INTO ${TABLE_CATEGORIES} (${COL_NAME}, ${COL_CREATED_AT}) VALUES (?, datetime('now'))`,
+          name
+        );
+      }
+
+      console.log("ExpenseCategoryService: DB initialized and table ensured");
+    } catch (error) {
+      console.error("ExpenseCategoryService.init() failed:", error);
+      throw new Error("ExpenseCategoryService: Initialization failed");
     }
+  },
 
-    await this.db.execAsync(`
-      CREATE TABLE IF NOT EXISTS categories (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL UNIQUE,
-        created_at TEXT NOT NULL
+  async close(): Promise<void> {
+    if (!db) return;
+
+    try {
+      await db.closeAsync();
+      console.log("ExpenseCategoryService: DB connection closed");
+    } catch (error) {
+      console.error("ExpenseCategoryService.close() failed:", error);
+    } finally {
+      db = undefined!;
+    }
+  },
+
+  async getAll(): Promise<ExpenseCategory[]> {
+    ensureDbReady();
+
+    try {
+      const result = await db.getAllAsync<ExpenseCategory>(
+        `SELECT * FROM ${TABLE_CATEGORIES} ORDER BY ${COL_NAME}`
       );
-    `);
+      return result;
+    } catch (error) {
+      console.error("ExpenseCategoryService.getAll() failed:", error);
+      return [];
+    }
+  },
 
-    // Insert default categories if they don't exist
-    for (const name of defaultCategories) {
-      await this.db.runAsync(
-        `INSERT OR IGNORE INTO categories (name, created_at) VALUES (?, datetime('now'))`,
+  async add(name: string): Promise<number> {
+    ensureDbReady();
+
+    try {
+      const result = await db.runAsync(
+        `INSERT INTO ${TABLE_CATEGORIES} (${COL_NAME}, ${COL_CREATED_AT}) VALUES (?, datetime('now'))`,
         name
       );
+      return result.lastInsertRowId!;
+    } catch (error) {
+      console.error("ExpenseCategoryService.add() failed:", error);
+      return -1;
     }
-  }
+  },
 
-  static async getAll(): Promise<ExpenseCategory[]> {
-    const rows = await this.db.getAllAsync<ExpenseCategory>(
-      "SELECT * FROM categories ORDER BY name"
-    );
-    return rows;
-  }
+  async remove(id: number): Promise<void> {
+    ensureDbReady();
 
-  static async add(name: string): Promise<number> {
-    const result = await this.db.runAsync(
-      'INSERT INTO categories (name, created_at) VALUES (?, datetime("now"))',
-      name
-    );
-    return result.lastInsertRowId; // Return the new ID
-  }
-
-  static async remove(id: number): Promise<void> {
-    await this.db.runAsync("DELETE FROM categories WHERE id = ?", id);
-  }
-}
+    try {
+      await db.runAsync(
+        `DELETE FROM ${TABLE_CATEGORIES} WHERE ${COL_ID} = ?`,
+        id
+      );
+      console.log(`ExpenseCategoryService.remove(): id=${id} deleted`);
+    } catch (error) {
+      console.error("ExpenseCategoryService.remove() failed:", error);
+    }
+  },
+};

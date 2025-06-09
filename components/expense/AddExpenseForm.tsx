@@ -3,10 +3,11 @@ import { ExpenseCategoryService } from "@/services/ExpenseCategoryService";
 import { ExpenseItemService } from "@/services/ExpenseItemService";
 import { Currency, ExpenseCategory } from "@/types/types";
 import { useFocusEffect } from "@react-navigation/native";
+import { useNavigation } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Modal, Text, TextInput, TouchableOpacity, View } from "react-native";
-import CategorySelector from "../CategorySelector";
-import CurrencySelector from "../CurrencySelector";
+import CurrencySelector from "../setting/CurrencySelector";
+import CategorySelector from "./CategorySelector";
 
 const AddExpenseForm: React.FC = () => {
   const [name, setName] = useState("");
@@ -23,20 +24,28 @@ const AddExpenseForm: React.FC = () => {
   const [categoryModalVisible, setCategoryModalVisible] = useState(false);
   const [currencyModalVisible, setCurrencyModalVisible] = useState(false);
 
+  const navigation = useNavigation();
+
   const fetchInitialData = async () => {
-    console.log("Expense.tsx.fetchInitialData() is intiated");
+    console.log("Expense.tsx.fetchInitialData() is initiated");
+
     const fetchedCategories = await ExpenseCategoryService.getAll();
     const fetchedCurrencies = await CurrencyService.getAll();
+    const selectedCurrency = await CurrencyService.getSelectedCurrency();
 
     setCategories(fetchedCategories);
     setCurrencies(fetchedCurrencies);
 
-    // Set default selections
+    // Set default selected category
     if (fetchedCategories.length > 0) {
       setSelectedCategoryId(fetchedCategories[0].id!);
     }
 
-    if (fetchedCurrencies.length > 0) {
+    // Set selected currency from app config if exists
+    if (selectedCurrency) {
+      setSelectedCurrencyId(selectedCurrency.id);
+    } else if (fetchedCurrencies.length > 0) {
+      // fallback to first currency
       setSelectedCurrencyId(fetchedCurrencies[0].id!);
     }
   };
@@ -89,6 +98,7 @@ const AddExpenseForm: React.FC = () => {
     setPrice("");
     setQuantity("1");
     console.log("Add Expense is successful");
+    navigation.goBack(); // ✅ Go back to previous screen
   };
 
   useEffect(() => {
@@ -129,6 +139,7 @@ const AddExpenseForm: React.FC = () => {
           color: "white",
         }}
       />
+      <Text className="text-light_green  my-2">Quantity</Text>
       <TextInput
         className="rounded-lg"
         placeholder="Quantity"
@@ -144,33 +155,31 @@ const AddExpenseForm: React.FC = () => {
           color: "white",
         }}
       />
-
-      {selectedCategoryId && (
-        <Text className="text-light_green" style={{ marginVertical: 5 }}>
-          Selected Category:{" "}
-          {categories.find((c) => c.id === selectedCategoryId)?.name}
+      {/* {selectedCurrencyId && (
+        <Text
+          className="text-light_green font-bold"
+          style={{ marginVertical: 5 }}
+        >
+          Currency: {currencies.find((c) => c.id === selectedCurrencyId)?.name}
         </Text>
-      )}
+      )} */}
+
+      <Text className="text-light_green">Category</Text>
       <TouchableOpacity
-        className="bg-primary py-3 rounded-md mt-2"
+        className="bg-light_green py-3 rounded-md mt-2"
         onPress={() => setCategoryModalVisible(true)}
       >
-        <Text className="text-center text-white text-lg">Select Category</Text>
-      </TouchableOpacity>
-      {selectedCurrencyId && (
-        <Text className="text-light_green" style={{ marginVertical: 5 }}>
-          Selected Currency:{" "}
-          {currencies.find((c) => c.id === selectedCurrencyId)?.name}
+        <Text className="text-center text-dark text-lg">
+          {selectedCategoryId && (
+            <Text className="text-dark" style={{ marginVertical: 5 }}>
+              {categories.find((c) => c.id === selectedCategoryId)?.name}
+            </Text>
+          )}
         </Text>
-      )}
-      <TouchableOpacity
-        className="bg-primary py-3 rounded-md mt-2"
-        onPress={() => setCurrencyModalVisible(true)}
-      >
-        <Text className="text-center text-white text-lg">Select Currency</Text>
       </TouchableOpacity>
+
       <TouchableOpacity
-        className="bg-action py-3 rounded-md mt-2"
+        className="bg-action py-3 rounded-md mt-6"
         onPress={addItem}
       >
         <Text className="text-center text-white text-lg">Add Expense</Text>
