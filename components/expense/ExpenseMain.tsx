@@ -124,10 +124,17 @@ const ExpenseMain: React.FC = () => {
         style={{ height: "12%" }}
       >
         <View className="flex-col justify-center items-start">
-          <Text className="text-white text-l font-thin">Monthly Total</Text>
+          <Text className="text-white mt-2 text-l font-thin">
+            Monthly Total
+          </Text>
           <Text className="text-white text-2xl font-bold">
             {monthlyTotalExpense.toFixed(2)} {selectedCurrency?.symbol ?? ""}
           </Text>
+          <Link href={`/expense/expense_history`} asChild>
+            <TouchableOpacity>
+              <Text className="text-action underline">Show History</Text>
+            </TouchableOpacity>
+          </Link>
         </View>
         <View className="flex-col justify-center text-center items-center">
           <Text className="text-action mb-1 text-sm">

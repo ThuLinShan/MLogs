@@ -90,6 +90,26 @@ export const ExpenseItemService = {
     }
   },
 
+  async add(item: Omit<ExpenseItemType, "id" | "created_at">): Promise<number> {
+    ensureDbReady();
+    try {
+      const epoch = getCurrentEpoch();
+      const result = await db.runAsync(
+        `INSERT INTO ${TABLE_EXPENSE_ITEMS} (${COL_NAME}, ${COL_PRICE}, ${COL_QUANTITY}, ${COL_CATEGORY_ID}, ${COL_CURRENCY_ID}, ${COL_CREATED_AT}) VALUES (?, ?, ?, ?, ?, ?)`,
+        item.name,
+        item.price,
+        item.quantity,
+        item.category_id,
+        item.currency_id,
+        epoch
+      );
+      return result.lastInsertRowId!;
+    } catch (err) {
+      console.error("add failed:", err);
+      return -1;
+    }
+  },
+
   async fetchExpensesInRange(
     startEpoch: number,
     endEpoch: number
@@ -138,26 +158,6 @@ export const ExpenseItemService = {
       }
     } catch (err) {
       console.error("resetAndSeedMockData failed:", err);
-    }
-  },
-
-  async add(item: Omit<ExpenseItemType, "id" | "created_at">): Promise<number> {
-    ensureDbReady();
-    try {
-      const epoch = getCurrentEpoch();
-      const result = await db.runAsync(
-        `INSERT INTO ${TABLE_EXPENSE_ITEMS} (${COL_NAME}, ${COL_PRICE}, ${COL_QUANTITY}, ${COL_CATEGORY_ID}, ${COL_CURRENCY_ID}, ${COL_CREATED_AT}) VALUES (?, ?, ?, ?, ?, ?)`,
-        item.name,
-        item.price,
-        item.quantity,
-        item.category_id,
-        item.currency_id,
-        epoch
-      );
-      return result.lastInsertRowId!;
-    } catch (err) {
-      console.error("add failed:", err);
-      return -1;
     }
   },
 
@@ -273,5 +273,114 @@ export const ExpenseItemService = {
     const [startEpoch, endEpoch] = getEpochRangeFromDateRange(start, end);
     const items = await fetchExpensesInRange(startEpoch, endEpoch);
     return items.reduce((sum, i) => sum + i.total, 0);
+  },
+
+  // New method to update category for expense items
+  async updateCategoryForItems(
+    fromCategoryId: number,
+    toCategoryId: number
+  ): Promise<void> {
+    ensureDbReady();
+    try {
+      await db.runAsync(
+        `UPDATE ${TABLE_EXPENSE_ITEMS} SET ${COL_CATEGORY_ID} = ? WHERE ${COL_CATEGORY_ID} = ?`,
+        toCategoryId,
+        fromCategoryId
+      );
+      console.log(
+        `ExpenseItemService.updateCategoryForItems(): Updated items from category ${fromCategoryId} to ${toCategoryId}`
+      );
+    } catch (err) {
+      console.error("updateCategoryForItems failed:", err);
+      throw err;
+    }
+  },
+
+  // Method to get count of items using a specific category
+  async getItemCountByCategory(categoryId: number): Promise<number> {
+    ensureDbReady();
+    try {
+      const result = await db.getFirstAsync<{ count: number }>(
+        `SELECT COUNT(*) as count FROM ${TABLE_EXPENSE_ITEMS} WHERE ${COL_CATEGORY_ID} = ?`,
+        categoryId
+      );
+      return result?.count || 0;
+    } catch (err) {
+      console.error("getItemCountByCategory failed:", err);
+      return 0;
+    }
+  },
+
+  async fetchExpensesByMonth(year: number): Promise<{ [key: string]: number }> {
+    ensureDbReady();
+    try {
+      const expenses = await db.getAllAsync<ExpenseItemType>(
+        `SELECT ${COL_CREATED_AT}, ${COL_PRICE}, ${COL_QUANTITY} FROM ${TABLE_EXPENSE_ITEMS}`
+      );
+
+      if (!expenses || expenses.length === 0) return {}; // Handle empty results
+
+      const monthlyTotals: { [key: string]: number } = {};
+
+      expenses.forEach((expense) => {
+        if (
+          !expense.created_at ||
+          expense.price == null ||
+          expense.quantity == null
+        )
+          return;
+
+        const date = new Date(expense.created_at * 1000);
+        if (date.getFullYear() === year) {
+          const month = date.getMonth() + 1;
+          const key = `${year}-${month < 10 ? `0${month}` : month}`;
+          monthlyTotals[key] =
+            (monthlyTotals[key] || 0) + expense.price * expense.quantity;
+        }
+      });
+
+      return monthlyTotals;
+    } catch (err) {
+      console.error("fetchExpensesByMonth failed:", err);
+      return {};
+    }
+  },
+
+  async fetchExpensesByWeek(
+    year: number,
+    month: number
+  ): Promise<{ [key: string]: number }> {
+    ensureDbReady();
+    try {
+      const expenses = await db.getAllAsync<ExpenseItemType>(
+        `SELECT ${COL_CREATED_AT}, ${COL_PRICE}, ${COL_QUANTITY} FROM ${TABLE_EXPENSE_ITEMS}`
+      );
+
+      if (!expenses || expenses.length === 0) return {};
+
+      const weeklyTotals: { [key: string]: number } = {};
+
+      expenses.forEach((expense) => {
+        if (
+          !expense.created_at ||
+          expense.price == null ||
+          expense.quantity == null
+        )
+          return;
+
+        const date = new Date(expense.created_at * 1000);
+        if (date.getFullYear() === year && date.getMonth() + 1 === month) {
+          const week = Math.ceil(date.getDate() / 7);
+          const key = `Week ${week}`;
+          weeklyTotals[key] =
+            (weeklyTotals[key] || 0) + expense.price * expense.quantity;
+        }
+      });
+
+      return weeklyTotals;
+    } catch (err) {
+      console.error("fetchExpensesByWeek failed:", err);
+      return {};
+    }
   },
 };

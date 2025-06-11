@@ -34,18 +34,21 @@ const AddMemoForm = () => {
       <View>
         <TextInput
           value={title}
+          placeholderTextColor="#40798C"
           onChangeText={setTitle}
           placeholder="Title"
           className="rounded font-bold text-xl"
+          style={{ color: "#000000" }}
         />
         <View className="rounded">
           <TextInput
             value={description}
             onChangeText={setDescription}
             placeholder="Description"
+            placeholderTextColor="#40798C"
             multiline
             className=" text-lg"
-            style={{ height: 600, textAlignVertical: "top" }}
+            style={{ height: 600, textAlignVertical: "top", color: "#000000" }}
           />
         </View>
       </View>
@@ -54,7 +57,7 @@ const AddMemoForm = () => {
           className="bg-primary py-3 rounded-md mt-2"
           onPress={handleAdd}
         >
-          <Text className="text-center text-white text-lg">Add Memo</Text>
+          <Text className="text-center text-white text-lg">Save</Text>
         </TouchableOpacity>
         <TouchableOpacity
           className="border-2 border-primary rounded-lg my-4  py-3.5 flex flex-row items-center justify-center z-50"

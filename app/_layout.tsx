@@ -16,6 +16,10 @@ export default function RootLayout() {
         <Stack.Screen name="memo/add_memo" options={{ headerShown: false }} />
         <Stack.Screen name="memo/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="setting/setting" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="expense/expense_history"
+          options={{ headerShown: false }}
+        />
       </Stack>
     </>
   );

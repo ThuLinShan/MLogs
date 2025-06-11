@@ -17,6 +17,7 @@ const ExpenseItem: React.FC<ExpenseItemProps> = ({
   item,
   onDelete,
   onQuantityChange,
+  categoryName,
   currencySymbol,
 }) => {
   const handleIncrement = async () => {
@@ -33,20 +34,27 @@ const ExpenseItem: React.FC<ExpenseItemProps> = ({
     <View className="p-4 flex-row flex-wrap justify-between align-middle border-1 border-b border-dark">
       {/* Name and Price Section (40%) */}
       <View
-        className="flex flex-wrap flex-row items-start justify-center content-center"
+        className="flex-col items-start justify-center content-center"
         style={{ width: "40%" }}
       >
-        <Text className="text-green text-lg flex-shrink">{item.name}</Text>
-        <Text className="text-action">
-          {" ("}
-          {item.price}
-          {currencySymbol}
-          {")"}
+        <Text className="text-light_green text-lg flex-shrink">
+          {item.name}
         </Text>
+        <View className="flex-row">
+          {/* <Text className="text-white text-sm flex-shrink w-[30%] bg-blue_green rounded text-center items-center align-middle content-center me-2">
+            {categoryName}{" "}
+          </Text> */}
+          <Text className="text-action">
+            {" ("}
+            {item.price}
+            {currencySymbol}
+            {")"}
+          </Text>
+        </View>
       </View>
 
       {/* Quantity with + / - buttons (20%) */}
-      <View className="w-2/10 flex-row items-center justify-center bg-action h-[80%] mt-2 rounded-md">
+      <View className="flex-row items-center justify-center bg-action h-[35px] mt-2 rounded-md">
         <TouchableOpacity className="px-2" onPress={handleDecrement}>
           <Text className="text-dark_sec text-2xl font-bold">−</Text>
         </TouchableOpacity>

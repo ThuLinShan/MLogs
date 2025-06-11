@@ -6,7 +6,7 @@ import { Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
 
 const memo = () => {
   return (
-    <View className="flex-1">
+    <View className="flex-1 bg-white">
       {/* Your existing content (like ScrollView, FlatList, etc.) */}
       <ScrollView
         className="flex-1  px-1"

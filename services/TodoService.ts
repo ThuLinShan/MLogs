@@ -2,7 +2,7 @@
 import { TodoItemType } from "@/types/types";
 import * as SQLite from "expo-sqlite";
 
-const DATABASE_NAME = "todo.db";
+const DATABASE_NAME = "expenses.db";
 const TABLE_TODOS = "todos";
 
 const COL_ID = "id";

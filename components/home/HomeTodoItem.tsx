@@ -14,7 +14,7 @@ const HomeTodoItem: React.FC<HomeTodoItemProps> = ({
   onToggleComplete,
 }) => (
   <View
-    className={`py-4 px-8 border-b border-primary flex-row flex-wrap justify-between align-middle items-center rounded-lg mb-2 ${
+    className={`py-4 px-8 border-b border-dark flex-row flex-wrap justify-between align-middle items-center  ${
       item.completed ? "bg-dark" : ""
     }`}
   >

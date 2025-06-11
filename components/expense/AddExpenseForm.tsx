@@ -36,9 +36,16 @@ const AddExpenseForm: React.FC = () => {
     setCategories(fetchedCategories);
     setCurrencies(fetchedCurrencies);
 
-    // Set default selected category
+    // Set default selected category to "None"
     if (fetchedCategories.length > 0) {
-      setSelectedCategoryId(fetchedCategories[0].id!);
+      const noneCategory = fetchedCategories.find((cat) => cat.name === "None");
+      if (noneCategory) {
+        setSelectedCategoryId(noneCategory.id!);
+        console.log("Default category set to 'None', id:", noneCategory.id);
+      } else {
+        // Fallback to first category if "None" doesn't exist
+        setSelectedCategoryId(fetchedCategories[0].id!);
+      }
     }
 
     // Set selected currency from app config if exists
@@ -155,29 +162,23 @@ const AddExpenseForm: React.FC = () => {
           color: "white",
         }}
       />
-      {/* {selectedCurrencyId && (
-        <Text
-          className="text-light_green font-bold"
-          style={{ marginVertical: 5 }}
-        >
-          Currency: {currencies.find((c) => c.id === selectedCurrencyId)?.name}
-        </Text>
-      )} */}
 
-      <Text className="text-light_green">Category</Text>
-      <TouchableOpacity
-        className="bg-light_green py-3 rounded-md mt-2"
-        onPress={() => setCategoryModalVisible(true)}
-      >
-        <Text className="text-center text-dark text-lg">
+      <View className="flex-row my-2 align-middle items-center">
+        {/* <Text className="text-light_green me-2">Category: </Text>
+        <TouchableOpacity
+          className="p-0 -m-0"
+          onPress={() => setCategoryModalVisible(true)}
+        >
           {selectedCategoryId && (
-            <Text className="text-dark" style={{ marginVertical: 5 }}>
+            <Text
+              className="underline text-action"
+              style={{ marginVertical: 5 }}
+            >
               {categories.find((c) => c.id === selectedCategoryId)?.name}
             </Text>
           )}
-        </Text>
-      </TouchableOpacity>
-
+        </TouchableOpacity> */}
+      </View>
       <TouchableOpacity
         className="bg-action py-3 rounded-md mt-6"
         onPress={addItem}

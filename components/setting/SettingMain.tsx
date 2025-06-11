@@ -12,29 +12,36 @@ const SettingMain = () => {
 
   useEffect(() => {
     const loadCurrency = async () => {
-      await CurrencyService.init();
-      const currency = await CurrencyService.getSelectedCurrency();
-      setSelectedCurrency(currency);
+      try {
+        await CurrencyService.init();
+        const currency = await CurrencyService.getSelectedCurrency();
+        if (currency) {
+          setSelectedCurrency(currency);
+        } else {
+          console.error("No currency found");
+        }
+      } catch (error) {
+        console.error("Error loading currency:", error);
+      }
     };
-
     loadCurrency();
   }, []);
 
   return (
     <View>
+      <View className="p-5 mt-16">
+        <Text className="text-2xl text-dark_sec-100 font-bold">Settings</Text>
+      </View>
       <ScrollView
-        className="mt-16"
+        className="bg-secondary"
         showsVerticalScrollIndicator={true}
         contentContainerStyle={{
-          minHeight: "100%",
+          minHeight: "110%",
           paddingBottom: 10,
         }}
       >
-        <View className="p-5 mb-6">
-          <Text className="text-2xl text-dark_sec-100 font-bold">Settings</Text>
-        </View>
         <View className="w-[85%] mx-auto p-4 flex-row justify-between">
-          <Text className="text-dark_sec-100">
+          <Text className="text-dark_sec-100 text-lg">
             Currency:{" "}
             {selectedCurrency
               ? `${selectedCurrency.name} (${selectedCurrency.symbol})`

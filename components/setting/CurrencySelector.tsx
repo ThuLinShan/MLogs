@@ -74,6 +74,28 @@ const CurrencySelector: React.FC<CurrencySelectorProps> = ({
       style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
     >
       <View className="w-full max-h-[60%] bg-dark_sec p-6 rounded-lg ">
+        <View className="mb-4">
+          <TextInput
+            className="bg-white text-black rounded px-3 py-2 mb-2"
+            placeholder="New Currency Name"
+            placeholderTextColor="#40798C"
+            value={newCurrencyName}
+            onChangeText={setNewCurrencyName}
+          />
+          <TextInput
+            className="bg-white text-black rounded px-3 py-2 mb-2"
+            placeholder="New Currency Symbol"
+            placeholderTextColor="#40798C"
+            value={newCurrencySymbol}
+            onChangeText={setNewCurrencySymbol}
+          />
+          <TouchableOpacity
+            className="bg-primary mb-2 items-center py-2 rounded-md"
+            onPress={handleAddCurrency}
+          >
+            <Text className="text-white">Add Currency</Text>
+          </TouchableOpacity>
+        </View>
         <FlatList
           className="mb-4"
           data={currencies}
@@ -100,32 +122,12 @@ const CurrencySelector: React.FC<CurrencySelectorProps> = ({
             </View>
           )}
         />
-        <View className="mb-8">
-          <TextInput
-            className="bg-white text-black rounded px-3 py-2 mb-2"
-            placeholder="New Currency Name"
-            value={newCurrencyName}
-            onChangeText={setNewCurrencyName}
-          />
-          <TextInput
-            className="bg-white text-black rounded px-3 py-2 mb-2"
-            placeholder="New Currency Symbol"
-            value={newCurrencySymbol}
-            onChangeText={setNewCurrencySymbol}
-          />
-          <TouchableOpacity
-            className="bg-primary mb-2 items-center py-2 rounded-md"
-            onPress={handleAddCurrency}
-          >
-            <Text className="text-white">Add Category</Text>
-          </TouchableOpacity>
-        </View>
 
         <TouchableOpacity
-          className="bg-dark_sec items-center py-2 rounded-md border-2 border-action-100"
+          className=" bg-dark items-center py-3 rounded-md"
           onPress={onClose}
         >
-          <Text className="text-action-100">Close</Text>
+          <Text className="text-white">Close</Text>
         </TouchableOpacity>
       </View>
     </View>

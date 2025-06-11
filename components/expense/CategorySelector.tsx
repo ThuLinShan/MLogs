@@ -22,7 +22,6 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
 }) => {
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [newCategoryName, setNewCategoryName] = useState("");
-
   useEffect(() => {
     const fetchCategories = async () => {
       await ExpenseCategoryService.init();
@@ -42,8 +41,28 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
   };
 
   const handleDeleteCategory = async (id: number) => {
-    await ExpenseCategoryService.remove(id);
-    setCategories(categories.filter((cat) => cat.id !== id));
+    try {
+      await ExpenseCategoryService.remove(id);
+      setCategories(categories.filter((cat) => cat.id !== id));
+    } catch (error) {
+      // Handle the error (e.g., show alert for protected categories)
+      console.error("Failed to delete category:", error);
+      // You might want to show an alert or toast here
+    }
+  };
+
+  const handleCategorySelect = (category: ExpenseCategory) => {
+    onSelect(category);
+    console.log("CategorySelector.onSelect(): id: ", category.id);
+    onClose();
+  };
+
+  const handleClose = () => {
+    onClose();
+  };
+
+  const canDeleteCategory = (categoryName: string) => {
+    return categoryName !== "None";
   };
 
   return (
@@ -52,6 +71,19 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
       style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
     >
       <View className="w-full max-h-[80%] bg-dark_sec p-6 rounded-lg ">
+        <TextInput
+          placeholder="New Category"
+          value={newCategoryName}
+          placeholderTextColor="#40798C"
+          onChangeText={setNewCategoryName}
+          className="bg-white text-black rounded px-3 py-3 mb-2"
+        />
+        <TouchableOpacity
+          className="bg-primary mb-8 items-center py-3 rounded-md"
+          onPress={handleAddCategory}
+        >
+          <Text className="text-white">Add Category</Text>
+        </TouchableOpacity>
         <FlatList
           data={categories}
           keyExtractor={(item) => item.id!.toString()}
@@ -59,42 +91,27 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
             <View className="flex-row justify-between items-center mb-2">
               <Text
                 className="text-white text-lg"
-                onPress={() => {
-                  onSelect(item);
-                  console.log("CategorySelector.onSelect(): id: ", item.id);
-                  onClose(); // Close modal after select
-                }}
+                onPress={() => handleCategorySelect(item)}
               >
                 {item.name}
               </Text>
-              <TouchableOpacity
-                className=""
-                onPress={() => handleDeleteCategory(item.id!)}
-              >
-                <Text className="text-action-500 underline">Delete</Text>
-              </TouchableOpacity>
+              {canDeleteCategory(item.name) && (
+                <TouchableOpacity
+                  className=""
+                  onPress={() => handleDeleteCategory(item.id!)}
+                >
+                  <Text className="text-action-500 underline">Delete</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
           className="mb-4"
-          style={{ maxHeight: 200 }} // optional: restrict FlatList height
+          style={{ maxHeight: 300 }} // optional: restrict FlatList height
         />
 
-        <TextInput
-          placeholder="New Category"
-          value={newCategoryName}
-          onChangeText={setNewCategoryName}
-          className="bg-white text-black rounded px-3 py-2 mb-8"
-        />
         <TouchableOpacity
-          className="bg-primary mb-4 items-center py-2 rounded-md"
-          onPress={handleAddCategory}
-        >
-          <Text className="text-white">Add Category</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          className="bg-primary mb-4 items-center py-2 rounded-md"
-          onPress={onClose}
+          className="items-center py-3 rounded-md bg-dark"
+          onPress={handleClose}
         >
           <Text className="text-white">Close</Text>
         </TouchableOpacity>

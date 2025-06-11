@@ -67,6 +67,8 @@ const EditMemoForm: React.FC<EditMemoFormProps> = ({ id }) => {
           value={title}
           onChangeText={setTitle}
           placeholder="Title"
+          placeholderTextColor="#40798C"
+          style={{ color: "#000000" }}
           className="rounded font-bold text-xl border-b border-secondary"
         />
         <View className="rounded">
@@ -74,9 +76,10 @@ const EditMemoForm: React.FC<EditMemoFormProps> = ({ id }) => {
             value={description}
             onChangeText={setDescription}
             placeholder="Description"
+            placeholderTextColor="#40798C"
             multiline
             className=" text-lg"
-            style={{ height: 600, textAlignVertical: "top" }}
+            style={{ height: 600, textAlignVertical: "top", color: "#000000" }}
           />
         </View>
       </View>
