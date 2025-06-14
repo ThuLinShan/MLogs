@@ -1,6 +1,5 @@
-import { CurrencyService } from "@/services/CurrencyService";
+import { useCurrency } from "@/context/CurrencyContext";
 import { ExpenseItemService } from "@/services/ExpenseItemService";
-import { Currency } from "@/types/types";
 import { Picker } from "@react-native-picker/picker";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -20,28 +19,15 @@ const ExpenseHistoryScreen = () => {
   const [viewType, setViewType] = useState<"year" | "month">("year");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-  const [selectedCurrency, setSelectedCurrency] = useState<Currency | null>(
-    null
-  );
+  const [categoryTotals, setCategoryTotals] = useState<{
+    [key: string]: number;
+  }>({});
+
+  const selectedCurrency = useCurrency();
   const [chartData, setChartData] = useState({
     labels: ["Loading..."],
     datasets: [{ data: [0] }],
   });
-
-  const loadSelectedCurrency = async () => {
-    await CurrencyService.init(); // Initialize DB and default currency
-    const currency = await CurrencyService.getSelectedCurrency();
-    console.log(
-      "ExpenseMain.loadSelectedCurrency: is successful. currency: ",
-      currency
-    );
-    setSelectedCurrency(currency);
-    console.log(
-      "ExpenseMain.loadSelectedCurrency: selectedCurrency: ",
-      selectedCurrency
-    );
-    await CurrencyService.close();
-  };
 
   const updateChartData = (data: { [key: string]: number }) => {
     console.log("ExpenseHistoryScreen.updateChartData(): is invoked.");
@@ -60,9 +46,14 @@ const ExpenseHistoryScreen = () => {
         return isFinite(data[key]) ? data[key] : 0;
       });
     } else {
-      labels = Array.from({ length: 4 }, (_, i) => `Week ${i + 1}`);
+      // Generate labels for each day of the selected month
+      const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+      labels = Array.from(
+        { length: daysInMonth },
+        (_, i) => `${i + 1}${getDaySuffix(i + 1)}`
+      );
       values = labels.map((_, index) => {
-        const key = `Week ${index + 1}`;
+        const key = `${index + 1}${getDaySuffix(index + 1)}`;
         return isFinite(data[key]) ? data[key] : 0;
       });
     }
@@ -73,23 +64,49 @@ const ExpenseHistoryScreen = () => {
     setChartData({ labels, datasets: [{ data: values }] });
   };
 
+  const getDaySuffix = (day: number): string => {
+    if (day >= 11 && day <= 13) return "th"; // Special case for 11th, 12th, 13th
+    switch (day % 10) {
+      case 1:
+        return "st";
+      case 2:
+        return "nd";
+      case 3:
+        return "rd";
+      default:
+        return "th";
+    }
+  };
+
   useEffect(() => {
-    loadSelectedCurrency();
     const fetchData = async () => {
       setLoading(true);
+
       let expenseData =
         viewType === "year"
           ? await ExpenseItemService.fetchExpensesByMonth(selectedYear)
-          : await ExpenseItemService.fetchExpensesByWeek(
+          : await ExpenseItemService.fetchExpensesByDay(
               selectedYear,
               selectedMonth
             );
+
+      let categoryData = await ExpenseItemService.fetchExpensesByCategory(
+        selectedYear,
+        viewType === "month" ? selectedMonth : undefined
+      );
 
       console.log(
         "ExpenseHistoryScreen.useEffect(): expenseData:",
         expenseData
       );
+      console.log(
+        "ExpenseHistoryScreen.useEffect(): categoryData:",
+        categoryData
+      );
+
       updateChartData(expenseData);
+      setCategoryTotals(categoryData);
+
       setLoading(false);
     };
 
@@ -167,27 +184,30 @@ const ExpenseHistoryScreen = () => {
         {loading ? (
           <Text>Loading data...</Text>
         ) : (
-          <LineChart
-            data={chartData}
-            width={screenWidth - 20}
-            height={250}
-            yAxisSuffix={selectedCurrency ? ` ${selectedCurrency.symbol}` : "$"}
-            chartConfig={{
-              backgroundColor: "#1F363D",
-              backgroundGradientFrom: "#1F363D",
-              backgroundGradientTo: "#16262B",
-              decimalPlaces: 0,
-              color: (opacity = 1) => `rgba(	239, 101, 77, ${opacity})`,
-              labelColor: (opacity = 1) => `rgba(207, 224, 195, ${opacity})`,
-              style: { borderRadius: 16 },
-              propsForDots: { r: "6", strokeWidth: "2", stroke: "#EF654D" },
-            }}
-            bezier
-            style={{
-              marginVertical: 10,
-              borderRadius: 16,
-            }}
-          />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <LineChart
+              data={chartData}
+              width={Math.max(screenWidth, chartData.labels.length * 40)} // Expands width dynamically
+              // withVerticalLabels={viewType === "month" ? false : true}
+              height={250}
+              yAxisSuffix={
+                selectedCurrency ? ` ${selectedCurrency.symbol}` : "$"
+              }
+              chartConfig={{
+                backgroundColor: "#1F363D",
+                backgroundGradientFrom: "#1F363D",
+                backgroundGradientTo: "#16262B",
+                decimalPlaces: 0,
+                color: (opacity = 1) => `rgba(239, 101, 77, ${opacity})`,
+                labelColor: (opacity = 1) => `rgba(207, 224, 195, ${opacity})`,
+                propsForDots: { r: "1", strokeWidth: "1", stroke: "#EF654D" },
+              }}
+              bezier
+              style={{
+                marginVertical: 10,
+              }}
+            />
+          </ScrollView>
         )}
         {/* <Text className="text-sm text-action-100">
           {viewType === "year"
@@ -198,35 +218,33 @@ const ExpenseHistoryScreen = () => {
               ).toLocaleString("en", { month: "long" })}`}
         </Text> */}
       </View>
-      <ScrollView
-        className="mx-4"
-        showsVerticalScrollIndicator={true}
-        contentContainerStyle={{
-          minHeight: "80%",
-          paddingBottom: 10,
-        }}
-      >
-        {/* Total Expense */}
-        <Text className="me-4 text-lg font-bold text-action">
-          Total Expense:{" "}
-          {selectedCurrency
-            ? `${totalExpense} ${selectedCurrency.symbol}`
-            : totalExpense}
+      <View className="px-4">
+        <Text className="text-lg text-light_green font-bold">
+          Total Expense: {totalExpense}{" "}
+          {selectedCurrency ? `${selectedCurrency.symbol}` : ``}
         </Text>
-        <View className="my-6 p-4">
-          {viewType === "year" &&
-            chartData.labels.map((month, index) => (
-              <View key={month} className="mb-3 flex-row justify-between">
-                <Text className="text-light_green">{month}</Text>
-                <Text className="text-action">
-                  {selectedCurrency
-                    ? `${chartData.datasets[0].data[index]} ${selectedCurrency.symbol}`
-                    : chartData.datasets[0].data[index]}
-                </Text>
-              </View>
-            ))}
-        </View>
-      </ScrollView>
+        <ScrollView
+          showsVerticalScrollIndicator={true}
+          contentContainerStyle={{
+            minHeight: "100%",
+            paddingBottom: 10,
+          }}
+        >
+          {Object.entries(categoryTotals).map(([category, total]) => (
+            <View
+              key={category}
+              className="p-2 border-b border-gray-700 flex-row justify-between"
+            >
+              <Text className="text-light_green">{category}: </Text>
+              <Text className="text-light_green">
+                {selectedCurrency
+                  ? `${total} ${selectedCurrency.symbol}`
+                  : `$${total}`}
+              </Text>
+            </View>
+          ))}
+        </ScrollView>
+      </View>
     </View>
   );
 };

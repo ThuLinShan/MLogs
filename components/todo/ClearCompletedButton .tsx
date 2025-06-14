@@ -19,7 +19,7 @@ const ClearCompletedButton = ({ onClear }: { onClear?: () => void }) => {
   return (
     <View className="">
       <TouchableOpacity className="" onPress={() => setModalVisible(true)}>
-        <Text className="mt-3 me-4 mb-2 text-red-600 underline font-bold">
+        <Text className="mt-3 me-4 mb-2 text-action underline font-bold">
           Remove Marked Tasks
         </Text>
       </TouchableOpacity>

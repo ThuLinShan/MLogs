@@ -17,7 +17,7 @@ const TodoItem: React.FC<TodoItemProps> = ({
   onToggleComplete,
 }) => (
   <View
-    className={`py-2 ps-3 border-b border-primary flex-row flex-wrap justify-between align-middle items-center rounded-lg mb-2 ${
+    className={`py-2 ps-3 border-b border-border-dark flex-row flex-wrap justify-between align-middle items-center rounded-lg mb-2 ${
       item.completed ? "bg-dark" : ""
     }`}
   >

@@ -88,7 +88,7 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
           data={categories}
           keyExtractor={(item) => item.id!.toString()}
           renderItem={({ item }) => (
-            <View className="flex-row justify-between items-center mb-2">
+            <View className="flex-row justify-between items-center mb-4 pb-2 ">
               <Text
                 className="text-white text-lg"
                 onPress={() => handleCategorySelect(item)}

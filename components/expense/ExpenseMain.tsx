@@ -1,9 +1,10 @@
 import ExpenseItem from "@/components/expense/ExpenseItem";
 import { icons } from "@/constants/icons";
+import { useCurrency } from "@/context/CurrencyContext";
 import { CurrencyService } from "@/services/CurrencyService";
 import { ExpenseCategoryService } from "@/services/ExpenseCategoryService";
 import { ExpenseItemService } from "@/services/ExpenseItemService";
-import { Currency, ExpenseCategory, ExpenseItemType } from "@/types/types";
+import { ExpenseCategory, ExpenseItemType } from "@/types/types";
 import { useFocusEffect } from "@react-navigation/native";
 import { format } from "date-fns";
 import { Link } from "expo-router";
@@ -21,9 +22,8 @@ import DateTimePickerModal from "react-native-modal-datetime-picker";
 const ExpenseMain: React.FC = () => {
   const [items, setItems] = useState<ExpenseItemType[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
-  const [selectedCurrency, setSelectedCurrency] = useState<Currency | null>(
-    null
-  );
+
+  const selectedCurrency = useCurrency();
 
   const [monthlyTotalExpense, setMonthlyTotalExpense] = useState(0);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -84,7 +84,6 @@ const ExpenseMain: React.FC = () => {
       "ExpenseMain.loadSelectedCurrency: is successful. currency: ",
       currency
     );
-    setSelectedCurrency(currency);
     console.log(
       "ExpenseMain.loadSelectedCurrency: selectedCurrency: ",
       selectedCurrency
@@ -97,22 +96,98 @@ const ExpenseMain: React.FC = () => {
     await await fetchExpensesForSelectedDate(selectedDate);
   };
 
+  const editItem = async (id: number) => {};
+
   useEffect(() => {
-    (async () => {
-      await ExpenseItemService.init();
-      await loadCategories();
-      await loadSelectedCurrency();
-      await fetchExpensesForSelectedDate(selectedDate);
-      await fetchMonthlyTotalExpense(selectedDate);
-    })();
+    const MAX_RETRIES = 5; // Maximum retry attempts
+    const RETRY_DELAY = 500; // 500ms delay between retries
+    let attempts = 0;
+
+    const initializeData = async () => {
+      while (attempts < MAX_RETRIES) {
+        try {
+          console.log(
+            `ExpenseMain: Initializing data (Attempt ${attempts + 1})...`
+          );
+
+          await Promise.all([
+            loadCategories(),
+            loadSelectedCurrency(),
+            ExpenseItemService.init(),
+            fetchExpensesForSelectedDate(selectedDate),
+            fetchMonthlyTotalExpense(selectedDate),
+          ]);
+
+          console.log(
+            "ExpenseMain: Data initialization completed successfully."
+          );
+          return; // Exit loop on success
+        } catch (error) {
+          attempts++;
+          console.error(
+            `ExpenseMain: Initialization failed (Attempt ${attempts})`,
+            error
+          );
+
+          if (attempts >= MAX_RETRIES) {
+            console.error(
+              "ExpenseMain: Maximum retries reached. Initialization failed."
+            );
+          } else {
+            console.log("ExpenseMain: Retrying initialization after delay...");
+            await new Promise((res) => setTimeout(res, RETRY_DELAY)); // Wait before retrying
+          }
+        }
+      }
+    };
+
+    initializeData();
   }, []);
 
   useFocusEffect(
     useCallback(() => {
-      loadSelectedCurrency();
-      fetchExpensesForSelectedDate(selectedDate);
-      fetchMonthlyTotalExpense(selectedDate);
-      return () => {};
+      const MAX_RETRIES = 3;
+      const RETRY_DELAY = 500;
+      let attempts = 0;
+
+      const fetchData = async () => {
+        while (attempts < MAX_RETRIES) {
+          try {
+            console.log(
+              `ExpenseMain: Fetching data (Attempt ${
+                attempts + 1
+              }) for selected date:`,
+              selectedDate
+            );
+
+            await Promise.all([
+              loadSelectedCurrency(),
+              fetchExpensesForSelectedDate(selectedDate),
+              fetchMonthlyTotalExpense(selectedDate),
+            ]);
+
+            console.log("ExpenseMain: Data fetching completed successfully.");
+            return; // Exit loop on success
+          } catch (error) {
+            attempts++;
+            console.error(
+              `ExpenseMain: Data fetching failed (Attempt ${attempts})`,
+              error
+            );
+
+            if (attempts >= MAX_RETRIES) {
+              console.error(
+                "ExpenseMain: Maximum retries reached. Data fetch failed."
+              );
+            } else {
+              console.log("ExpenseMain: Retrying data fetch after delay...");
+              await new Promise((res) => setTimeout(res, RETRY_DELAY)); // Wait before retrying
+            }
+          }
+        }
+      };
+
+      fetchData();
     }, [selectedDate])
   );
 

@@ -1,5 +1,6 @@
 import { CurrencyService } from "@/services/CurrencyService";
 import { Currency } from "@/types/types";
+import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { Modal, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import CurrencySelector from "./CurrencySelector";
@@ -29,14 +30,22 @@ const SettingMain = () => {
 
   return (
     <View>
-      <View className="p-5 mt-16">
+      <View className="p-5 mt-16 flex-row justify-between">
         <Text className="text-2xl text-dark_sec-100 font-bold">Settings</Text>
+        <TouchableOpacity
+          className="flex flex-row items-center justify-center z-50"
+          onPress={router.back}
+        >
+          <Text className="text-dark underline me-2 font-semibold text-base">
+            Back
+          </Text>
+        </TouchableOpacity>
       </View>
       <ScrollView
         className="bg-secondary"
         showsVerticalScrollIndicator={true}
         contentContainerStyle={{
-          minHeight: "110%",
+          minHeight: "75%",
           paddingBottom: 10,
         }}
       >
@@ -69,6 +78,10 @@ const SettingMain = () => {
           onClose={() => setCurrencyModalVisible(false)}
         />
       </Modal>
+      <View className="w-[85%] mx-auto p-4 flex-col align-middle content-center items-center">
+        <Text className="text-gray-500 italic">Developed by Thu Lin Shan,</Text>
+        <Text className="text-gray-500 italic">thulinshan1234@gmail.com</Text>
+      </View>
     </View>
   );
 };

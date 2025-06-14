@@ -5,6 +5,7 @@ import {
   getEpochRangeForToday,
 } from "@/utils/util";
 import * as SQLite from "expo-sqlite";
+import { ExpenseCategoryService } from "./ExpenseCategoryService";
 
 const DATABASE_NAME = "expenses.db";
 const TABLE_EXPENSE_ITEMS = "expense_items";
@@ -54,6 +55,21 @@ const getEpochRangeFromDateRange = (start: Date, end: Date) => [
   Math.floor(end.getTime() / 1000),
 ];
 
+//Helper function
+const getDaySuffix = (day: number): string => {
+  if (day >= 11 && day <= 13) return "th"; // Special case for 11th, 12th, 13th
+  switch (day % 10) {
+    case 1:
+      return "st";
+    case 2:
+      return "nd";
+    case 3:
+      return "rd";
+    default:
+      return "th";
+  }
+};
+
 export const ExpenseItemService = {
   async init(): Promise<void> {
     if (db) return;
@@ -89,6 +105,20 @@ export const ExpenseItemService = {
       db = undefined!;
     }
   },
+  async getById(id: number): Promise<ExpenseItemType | null> {
+    ensureDbReady();
+    try {
+      const item = await db.getFirstAsync<ExpenseItemType>(
+        `SELECT * FROM ${TABLE_EXPENSE_ITEMS} WHERE ${COL_ID} = ?`,
+        id
+      );
+
+      return item ? calculateTotal(item) : null;
+    } catch (err) {
+      console.error(`getById failed for ID ${id}:`, err);
+      return null;
+    }
+  },
 
   async add(item: Omit<ExpenseItemType, "id" | "created_at">): Promise<number> {
     ensureDbReady();
@@ -109,7 +139,27 @@ export const ExpenseItemService = {
       return -1;
     }
   },
-
+  async update(item: ExpenseItemType): Promise<boolean> {
+    ensureDbReady();
+    try {
+      await db.runAsync(
+        `UPDATE ${TABLE_EXPENSE_ITEMS} 
+       SET ${COL_NAME} = ?, ${COL_PRICE} = ?, ${COL_QUANTITY} = ?, 
+           ${COL_CATEGORY_ID} = ?, ${COL_CURRENCY_ID} = ?
+       WHERE ${COL_ID} = ?`,
+        item.name,
+        item.price,
+        item.quantity,
+        item.category_id,
+        item.currency_id,
+        item.id // Ensure you're updating the correct item by ID
+      );
+      return true;
+    } catch (err) {
+      console.error("update failed:", err);
+      return false;
+    }
+  },
   async fetchExpensesInRange(
     startEpoch: number,
     endEpoch: number
@@ -137,6 +187,7 @@ export const ExpenseItemService = {
         const dayEpoch = baseTime + day * 86400;
         for (let i = 0; i < 10; i++) {
           const item: ExpenseItemType = {
+            id: i,
             name: `Mock Item ${day * 10 + i + 1}`,
             price: parseFloat((Math.random() * 100).toFixed(2)),
             quantity: Math.floor(Math.random() * 5) + 1,
@@ -346,19 +397,23 @@ export const ExpenseItemService = {
     }
   },
 
-  async fetchExpensesByWeek(
+  async fetchExpensesByDay(
     year: number,
     month: number
   ): Promise<{ [key: string]: number }> {
     ensureDbReady();
     try {
-      const expenses = await db.getAllAsync<ExpenseItemType>(
+      const expenses = await db.getAllAsync<{
+        created_at: number;
+        price: number;
+        quantity: number;
+      }>(
         `SELECT ${COL_CREATED_AT}, ${COL_PRICE}, ${COL_QUANTITY} FROM ${TABLE_EXPENSE_ITEMS}`
       );
 
       if (!expenses || expenses.length === 0) return {};
 
-      const weeklyTotals: { [key: string]: number } = {};
+      const dailyTotals: { [key: string]: number } = {};
 
       expenses.forEach((expense) => {
         if (
@@ -370,16 +425,61 @@ export const ExpenseItemService = {
 
         const date = new Date(expense.created_at * 1000);
         if (date.getFullYear() === year && date.getMonth() + 1 === month) {
-          const week = Math.ceil(date.getDate() / 7);
-          const key = `Week ${week}`;
-          weeklyTotals[key] =
-            (weeklyTotals[key] || 0) + expense.price * expense.quantity;
+          const day = date.getDate();
+          const key = `${day}${getDaySuffix(day)}`; // Converts 1 → "1st", 2 → "2nd", etc.
+          dailyTotals[key] =
+            (dailyTotals[key] || 0) + expense.price * expense.quantity;
         }
       });
 
-      return weeklyTotals;
+      return dailyTotals;
     } catch (err) {
-      console.error("fetchExpensesByWeek failed:", err);
+      console.error("fetchExpensesByDay failed:", err);
+      return {};
+    }
+  },
+
+  async fetchExpensesByCategory(
+    year: number,
+    month?: number
+  ): Promise<{ [category: string]: number }> {
+    ensureDbReady();
+    try {
+      let query = `SELECT ${COL_CATEGORY_ID}, ${COL_PRICE}, ${COL_QUANTITY} FROM ${TABLE_EXPENSE_ITEMS} WHERE strftime('%Y', ${COL_CREATED_AT}, 'unixepoch') = ?`;
+      const params: any[] = [year.toString()];
+
+      if (month !== undefined) {
+        query += ` AND strftime('%m', ${COL_CREATED_AT}, 'unixepoch') = ?`;
+        params.push(month.toString().padStart(2, "0"));
+      }
+
+      const expenses = await db.getAllAsync<{
+        category_id: number;
+        price: number;
+        quantity: number;
+      }>(query, ...params);
+      const categories = await ExpenseCategoryService.getAll();
+      const categoryMap = new Map(categories.map((cat) => [cat.id, cat.name]));
+
+      const totals: { [category: string]: number } = {};
+
+      // Initialize all categories with a default value of 0
+      categoryMap.forEach((name) => {
+        totals[name] = 0;
+      });
+
+      // Populate totals with actual expenses
+      expenses.forEach(({ category_id, price, quantity }) => {
+        const categoryName = categoryMap.get(category_id) || "Unknown";
+        totals[categoryName] += price * quantity;
+      });
+
+      // Sort categories by total expense in descending order
+      return Object.fromEntries(
+        Object.entries(totals).sort(([, a], [, b]) => b - a)
+      );
+    } catch (err) {
+      console.error("fetchExpensesByCategory failed:", err);
       return {};
     }
   },

@@ -9,6 +9,15 @@ const TABLE_APP_CONFIG = "app_config";
 // ─── AppConfig Service ─────────────────────────────────────
 export class AppConfigService {
   private static db: SQLite.SQLiteDatabase;
+  static async ensureDbReady() {
+    if (!this.db) {
+      console.log(
+        "AppConfigService: Database is not initialized, initializing..."
+      );
+      await this.init();
+    }
+    console.log("AppConfigService: Database is ready");
+  }
 
   static async init() {
     if (!this.db) {
@@ -37,6 +46,7 @@ export class AppConfigService {
 
   static async get(key: string): Promise<string | null> {
     try {
+      await this.ensureDbReady(); // Ensure DB is ready before query
       const result = await this.db.getFirstAsync<{ value: string }>(
         `SELECT value FROM ${TABLE_APP_CONFIG} WHERE key = ?`,
         key

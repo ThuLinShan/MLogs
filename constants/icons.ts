@@ -5,6 +5,7 @@ import home from "@/assets/icons/home.png";
 import mark from "@/assets/icons/mark.png";
 import menu from "@/assets/icons/menu.png";
 import minus from "@/assets/icons/minus.png";
+import more from "@/assets/icons/more.png";
 import note from "@/assets/icons/note.png";
 import plus from "@/assets/icons/plus.png";
 import plus_thin from "@/assets/icons/plus_thin.png";
@@ -22,4 +23,5 @@ export const icons = {
   plus,
   trash,
   menu,
+  more,
 } as const;

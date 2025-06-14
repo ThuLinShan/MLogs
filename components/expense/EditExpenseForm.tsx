@@ -1,15 +1,21 @@
 import { CurrencyService } from "@/services/CurrencyService";
 import { ExpenseCategoryService } from "@/services/ExpenseCategoryService";
 import { ExpenseItemService } from "@/services/ExpenseItemService";
-import { Currency, ExpenseCategory } from "@/types/types";
-import { useFocusEffect } from "@react-navigation/native";
-import { useNavigation } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { Currency, ExpenseCategory, ExpenseItemType } from "@/types/types";
+import { router, useNavigation } from "expo-router";
+import { useEffect, useState } from "react";
 import { Modal, Text, TextInput, TouchableOpacity, View } from "react-native";
 import CurrencySelector from "../setting/CurrencySelector";
 import CategorySelector from "./CategorySelector";
 
-const AddExpenseForm: React.FC = () => {
+type EditExpenseFormProps = {
+  expenseid: number;
+};
+
+const EditExpenseForm: React.FC<EditExpenseFormProps> = ({ expenseid }) => {
+  const id = Number(expenseid); // Get expense ID from URL params
+  const navigation = useNavigation();
+
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [quantity, setQuantity] = useState("1");
@@ -24,99 +30,65 @@ const AddExpenseForm: React.FC = () => {
   const [categoryModalVisible, setCategoryModalVisible] = useState(false);
   const [currencyModalVisible, setCurrencyModalVisible] = useState(false);
 
-  const navigation = useNavigation();
+  useEffect(() => {
+    fetchExistingExpense();
+  }, [id]);
 
-  const fetchInitialData = async () => {
-    console.log("Expense.tsx.fetchInitialData() is initiated");
+  const fetchExistingExpense = async () => {
+    if (!id) return;
 
+    const expense = await ExpenseItemService.getById(Number(id));
+    if (!expense) return;
+
+    setName(expense.name);
+    setPrice(expense.price.toString());
+    setQuantity(expense.quantity.toString());
+    setSelectedCategoryId(expense.category_id);
+    setSelectedCurrencyId(expense.currency_id);
+
+    ExpenseCategoryService.init();
+    CurrencyService.init();
     const fetchedCategories = await ExpenseCategoryService.getAll();
     const fetchedCurrencies = await CurrencyService.getAll();
-    const selectedCurrency = await CurrencyService.getSelectedCurrency();
-
     setCategories(fetchedCategories);
     setCurrencies(fetchedCurrencies);
-
-    // Set default selected category to "None"
-    if (fetchedCategories.length > 0) {
-      const noneCategory = fetchedCategories.find((cat) => cat.name === "None");
-      if (noneCategory) {
-        setSelectedCategoryId(noneCategory.id!);
-        console.log("Default category set to 'None', id:", noneCategory.id);
-      } else {
-        // Fallback to first category if "None" doesn't exist
-        setSelectedCategoryId(fetchedCategories[0].id!);
-      }
-    }
-
-    // Set selected currency from app config if exists
-    if (selectedCurrency) {
-      setSelectedCurrencyId(selectedCurrency.id);
-    } else if (fetchedCurrencies.length > 0) {
-      // fallback to first currency
-      setSelectedCurrencyId(fetchedCurrencies[0].id!);
-    }
   };
 
-  useEffect(() => {
-    fetchInitialData();
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      console.log("Expense screen focused – reloading items.");
-      fetchInitialData();
-      return () => {}; // optional cleanup
-    }, [])
-  );
-
-  const loadCategories = async () => {
-    await ExpenseCategoryService.init();
-    const cats = await ExpenseCategoryService.getAll();
-    setCategories(cats);
-  };
-
-  const loadCurrencies = async () => {
-    await CurrencyService.init();
-    const data = await CurrencyService.getAll();
-    setCurrencies(data);
-  };
-  const addItem = async () => {
-    console.log("expense.addItem() is invoked:");
-    console.log(
-      "parameters: ",
-      name,
-      price,
-      selectedCategoryId,
-      selectedCurrencyId
-    );
-
+  const updateExpense = async () => {
     if (!name || !price || !selectedCategoryId || !selectedCurrencyId) return;
 
-    await ExpenseItemService.add({
+    const updatedExpense: ExpenseItemType = {
+      id: Number(id), // Ensure it's a number
       name,
       price: parseFloat(price),
       quantity: parseInt(quantity) || 1,
       category_id: selectedCategoryId,
-      currency_id: selectedCurrencyId!, // ← NEW
-      total: parseFloat(price) * (parseInt(quantity) || 1),
-    });
+      currency_id: selectedCurrencyId!,
+      total: parseFloat(price) * (parseInt(quantity) || 1), // ✅ Include `total` field
+      created_at: Date.now() / 1000, // ✅ Ensure `created_at` exists
+    };
 
-    setName("");
-    setPrice("");
-    setQuantity("1");
-    console.log("Add Expense is successful");
-    navigation.goBack(); // ✅ Go back to previous screen
+    await ExpenseItemService.update(updatedExpense);
+    console.log("Expense updated successfully");
+    navigation.goBack();
   };
 
-  useEffect(() => {
-    loadCategories();
-    loadCurrencies();
-  }, []);
   return (
-    <View className="py-12 px-4 ">
-      <Text className="text-light_green font-bold text-2xl my-5 ms-5 ">
-        Add Expense
-      </Text>
+    <View className="py-12 px-4">
+      <View className="flex-row justify-between">
+        <Text className="text-light_green font-bold text-2xl my-5 ms-5">
+          Edit Expense
+        </Text>
+        <TouchableOpacity
+          className="flex flex-row items-center justify-center z-50"
+          onPress={router.back}
+        >
+          <Text className="text-white underline me-2 font-semibold text-base">
+            Back
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <TextInput
         className="rounded-lg text-lg"
         placeholder="Name"
@@ -131,6 +103,7 @@ const AddExpenseForm: React.FC = () => {
           color: "white",
         }}
       />
+
       <TextInput
         className="rounded-lg text-lg"
         placeholder="Price"
@@ -146,7 +119,8 @@ const AddExpenseForm: React.FC = () => {
           color: "white",
         }}
       />
-      <Text className="text-light_green  my-2">Quantity</Text>
+
+      <Text className="text-light_green my-2">Quantity</Text>
       <TextInput
         className="rounded-lg text-lg"
         placeholder="Quantity"
@@ -165,10 +139,7 @@ const AddExpenseForm: React.FC = () => {
 
       <View className="flex-row my-2 align-middle items-center">
         <Text className="text-light_green me-2">Category: </Text>
-        <TouchableOpacity
-          className="p-0 -m-0"
-          onPress={() => setCategoryModalVisible(true)}
-        >
+        <TouchableOpacity onPress={() => setCategoryModalVisible(true)}>
           {selectedCategoryId && (
             <Text
               className="underline text-action"
@@ -179,11 +150,12 @@ const AddExpenseForm: React.FC = () => {
           )}
         </TouchableOpacity>
       </View>
+
       <TouchableOpacity
         className="bg-action py-3 rounded-md mt-6"
-        onPress={addItem}
+        onPress={updateExpense}
       >
-        <Text className="text-center text-white text-lg">Add Expense</Text>
+        <Text className="text-center text-white text-lg">Update Expense</Text>
       </TouchableOpacity>
 
       <Modal
@@ -196,6 +168,7 @@ const AddExpenseForm: React.FC = () => {
           onClose={() => setCategoryModalVisible(false)}
         />
       </Modal>
+
       <Modal
         transparent={true}
         visible={currencyModalVisible}
@@ -209,4 +182,5 @@ const AddExpenseForm: React.FC = () => {
     </View>
   );
 };
-export default AddExpenseForm;
+
+export default EditExpenseForm;

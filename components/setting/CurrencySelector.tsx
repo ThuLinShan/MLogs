@@ -76,14 +76,14 @@ const CurrencySelector: React.FC<CurrencySelectorProps> = ({
       <View className="w-full max-h-[60%] bg-dark_sec p-6 rounded-lg ">
         <View className="mb-4">
           <TextInput
-            className="bg-white text-black rounded px-3 py-2 mb-2"
+            className="bg-white text-lg text-black rounded px-3 py-2 mb-2"
             placeholder="New Currency Name"
             placeholderTextColor="#40798C"
             value={newCurrencyName}
             onChangeText={setNewCurrencyName}
           />
           <TextInput
-            className="bg-white text-black rounded px-3 py-2 mb-2"
+            className="bg-white text-lg text-black rounded px-3 py-2 mb-2"
             placeholder="New Currency Symbol"
             placeholderTextColor="#40798C"
             value={newCurrencySymbol}

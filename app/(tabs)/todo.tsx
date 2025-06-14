@@ -4,7 +4,7 @@ import { View } from "react-native";
 
 const todo = () => {
   return (
-    <View className="flex-1 h-max" style={{ height: "100%" }}>
+    <View className="flex-1 h-max bg-dark_sec" style={{ height: "100%" }}>
       <TodoMain />
     </View>
   );

@@ -1,9 +1,10 @@
 import HomeTodoItem from "@/components/home/HomeTodoItem";
 import { icons } from "@/constants/icons";
-import { CurrencyService } from "@/services/CurrencyService";
+import { useCurrency } from "@/context/CurrencyContext";
+import { ExpenseCategoryService } from "@/services/ExpenseCategoryService";
 import { ExpenseItemService } from "@/services/ExpenseItemService";
 import { TodoService } from "@/services/TodoService";
-import { Currency, TodoItemType } from "@/types/types";
+import { TodoItemType } from "@/types/types";
 import { Link, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { FlatList, Image, ScrollView, Text, View } from "react-native";
@@ -17,19 +18,9 @@ export default function Index() {
   const [countsLoading, setCountsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [dbReady, setDbReady] = useState(false);
-  const [selectedCurrency, setSelectedCurrency] = useState<Currency | null>(
-    null
-  );
-
-  const loadSelectedCurrency = async () => {
-    await CurrencyService.init(); // Initialize DB and default currency
-    const currency = await CurrencyService.getSelectedCurrency();
-    setSelectedCurrency(currency);
-    await CurrencyService.close();
-  };
+  const selectedCurrency = useCurrency();
 
   const fetchMonthlyTotalExpense = async (date: Date) => {
-    await ExpenseItemService.init();
     const total = await ExpenseItemService.getMonthlyTotalExpense(date);
     setMonthlyTotalExpense(total);
   };
@@ -40,7 +31,7 @@ export default function Index() {
       const data = await TodoService.getAll();
       setTodos(data);
     } catch (err) {
-      console.error("TodoMain: Failed to fetch todos", err);
+      console.error("Index: Failed to fetch todos", err);
     } finally {
       setLoading(false);
     }
@@ -56,7 +47,7 @@ export default function Index() {
       setCompletedCount(completed);
       setTotalCount(total);
     } catch (err) {
-      console.error("TodoMain: Failed to fetch counts", err);
+      console.error("Index: Failed to fetch todo counts", err);
     } finally {
       setCountsLoading(false);
     }
@@ -69,34 +60,98 @@ export default function Index() {
       setTodos(updatedTodos);
       fetchCounts();
     } catch (err) {
-      console.error("Failed to toggle complete:", err);
+      console.error("Index: Failed to toggle complete:", err);
     }
   };
 
   useEffect(() => {
-    (async () => {
-      await TodoService.init();
-      await ExpenseItemService.init();
-      await loadSelectedCurrency();
-      setDbReady(true);
-      await fetchMonthlyTotalExpense(selectedDate);
-      await fetchTodos();
-      await fetchCounts();
-    })();
+    const MAX_RETRIES = 3; // Maximum retry attempts
+    const RETRY_DELAY = 500; // 500ms interval between retries
+    let attempts = 0;
+
+    const initializeServices = async () => {
+      while (attempts < MAX_RETRIES) {
+        try {
+          console.log(
+            `Index: Initializing services (Attempt ${attempts + 1})...`
+          );
+
+          await Promise.all([
+            TodoService.init(),
+            ExpenseItemService.init(),
+            ExpenseCategoryService.init(),
+          ]);
+
+          setDbReady(true);
+          console.log("Index: Services initialized successfully.");
+
+          await fetchMonthlyTotalExpense(selectedDate);
+          await fetchTodos();
+          await fetchCounts();
+
+          return; // Exit loop on success
+        } catch (error) {
+          attempts++;
+          console.error(
+            `Index: Initialization failed (Attempt ${attempts})`,
+            error
+          );
+
+          if (attempts >= MAX_RETRIES) {
+            console.error(
+              "Index: Maximum retries reached. Initialization failed."
+            );
+          } else {
+            console.log(
+              "Index: Retrying service initialization after delay..."
+            );
+            await new Promise((res) => setTimeout(res, RETRY_DELAY)); // Wait before retrying
+          }
+        }
+      }
+    };
+
+    initializeServices();
   }, []);
 
   useFocusEffect(
     useCallback(() => {
+      const MAX_RETRIES = 3;
+      const RETRY_DELAY = 500;
+      let attempts = 0;
+
       const fetchData = async () => {
-        try {
-          await TodoService.init(); // Safe to call multiple times
-          await ExpenseItemService.init();
-          setDbReady(true);
-          await fetchMonthlyTotalExpense(selectedDate);
-          await fetchTodos();
-          await fetchCounts();
-        } catch (err) {
-          console.error("Failed in focus effect:", err);
+        while (attempts < MAX_RETRIES) {
+          try {
+            console.log(
+              `Index: Fetching data (Attempt ${
+                attempts + 1
+              }) for selected date:`,
+              selectedDate
+            );
+
+            await fetchMonthlyTotalExpense(selectedDate);
+            await fetchTodos();
+            await fetchCounts();
+
+            return; // Exit loop on success
+          } catch (error) {
+            attempts++;
+            console.error(
+              `Index: Data fetching failed (Attempt ${attempts})`,
+              error
+            );
+            ``;
+
+            if (attempts >= MAX_RETRIES) {
+              console.error(
+                "Index: Maximum retries reached. Data fetch failed."
+              );
+            } else {
+              console.log("Index: Retrying data fetch after delay...");
+              await new Promise((res) => setTimeout(res, RETRY_DELAY)); // Wait before retrying
+            }
+          }
         }
       };
 

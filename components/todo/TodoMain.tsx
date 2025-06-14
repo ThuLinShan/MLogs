@@ -70,20 +70,48 @@ const TodoMain: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    (async () => {
-      try {
-        await TodoService.init();
-        setDbReady(true);
-        await fetchTodos();
-        await fetchCounts();
-        await fetchTodayCounts();
-      } catch (err) {
-        console.error("TodoMain: Initialization or fetch failed", err);
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 500;
+    let attempts = 0;
+
+    const initializeServices = async () => {
+      while (attempts < MAX_RETRIES) {
+        try {
+          console.log(
+            `TodoMain: Initializing TodoService (Attempt ${attempts + 1})...`
+          );
+
+          await TodoService.init();
+          setDbReady(true);
+
+          await fetchTodos();
+          await fetchCounts();
+          await fetchTodayCounts();
+
+          console.log("TodoMain: TodoService initialized successfully.");
+          return; // Exit loop on success
+        } catch (err) {
+          attempts++;
+          console.error(
+            `TodoMain: Initialization failed (Attempt ${attempts})`,
+            err
+          );
+
+          if (attempts >= MAX_RETRIES) {
+            console.error(
+              "TodoMain: Maximum retries reached. Initialization failed."
+            );
+          } else {
+            console.log("TodoMain: Retrying initialization after delay...");
+            await new Promise((res) => setTimeout(res, RETRY_DELAY)); // Wait before retrying
+          }
+        }
       }
-    })();
+    };
+
+    initializeServices();
 
     return () => {
-      // Cleanup DB on unmount
       TodoService.close().then(() => {
         console.log("TodoMain: DB closed on unmount");
       });
@@ -92,10 +120,45 @@ const TodoMain: React.FC = () => {
 
   useFocusEffect(
     useCallback(() => {
-      if (!dbReady) return; // Skip if DB not ready
-      fetchTodos();
-      fetchCounts();
-      fetchTodayCounts();
+      if (!dbReady) return; // Skip if DB is not ready
+
+      const MAX_RETRIES = 3;
+      const RETRY_DELAY = 500;
+      let attempts = 0;
+
+      const fetchData = async () => {
+        while (attempts < MAX_RETRIES) {
+          try {
+            console.log(
+              `TodoMain: Fetching todos and counts (Attempt ${attempts + 1})...`
+            );
+
+            await fetchTodos();
+            await fetchCounts();
+            await fetchTodayCounts();
+
+            console.log("TodoMain: Data fetching completed.");
+            return; // Exit loop on success
+          } catch (err) {
+            attempts++;
+            console.error(
+              `TodoMain: Data fetching failed (Attempt ${attempts})`,
+              err
+            );
+
+            if (attempts >= MAX_RETRIES) {
+              console.error(
+                "TodoMain: Maximum retries reached. Data fetch failed."
+              );
+            } else {
+              console.log("TodoMain: Retrying data fetch after delay...");
+              await new Promise((res) => setTimeout(res, RETRY_DELAY)); // Wait before retrying
+            }
+          }
+        }
+      };
+
+      fetchData();
     }, [dbReady, fetchTodos, fetchCounts, fetchTodayCounts, refreshTrigger])
   );
 
@@ -123,7 +186,7 @@ const TodoMain: React.FC = () => {
   return (
     <View className="py-12 px-1">
       <View
-        className="flex-row justify-between items-center p-5 rounded-xl border-b-4 border-r-2 border-primary bg-dark_sec-100"
+        className="flex-row justify-between items-center p-5 rounded-xl border-b-4 border-r-2 border-dark bg-dark_sec"
         style={{ height: "12%" }}
       >
         <View className="flex-col justify-center items-start">
@@ -141,14 +204,14 @@ const TodoMain: React.FC = () => {
 
         {/* <View className="flex-col justify-center text-center items-center">
           <Text className="text-light_green mb-1 text-sm">test</Text>
-          <TouchableOpacity className="bg-white border-2 border-primary p-1 rounded-full w-[60px] flex-row justify-center items-center">
+          <TouchableOpacity className="bg-white border-2 border-light_green p-1 rounded-full w-[60px] flex-row justify-center items-center">
             <Image source={icons.calendar} className="size-8 " />
           </TouchableOpacity>
         </View> */}
       </View>
 
       <View className="flex-row justify-between content-center ">
-        <Text className="text-dark_sec text-sm mt-4 ms-4 mb-2 font-bold">
+        <Text className="text-light_green text-sm mt-4 ms-4 mb-2 font-bold">
           Today tasks: {todayCompletedCount}/{todayTotalCount}
         </Text>
         <ClearCompletedButton onClear={handleRefresh} />

@@ -42,7 +42,7 @@ const AddTodoForm: React.FC = () => {
         value={title}
         onChangeText={setTitle}
         placeholder="Title"
-        className="rounded-lg"
+        className="rounded-lg text-lg"
         placeholderTextColor="#CFE0C3"
         style={{
           borderWidth: 1,

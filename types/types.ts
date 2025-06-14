@@ -14,7 +14,7 @@ export type ExpenseCategory = {
 };
 
 export type ExpenseItemType = {
-  id?: number;
+  id: number;
   name: string;
   price: number;
   quantity: number;
