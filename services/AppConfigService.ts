@@ -19,6 +19,90 @@ export class AppConfigService {
     console.log("AppConfigService: Database is ready");
   }
 
+  static async appInit() {
+    const retries = 5;
+    const delay = 500; // milliseconds
+    let db: SQLite.SQLiteDatabase | undefined;
+
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        if (!db) {
+          db = await SQLite.openDatabaseAsync("expenses.db", {
+            useNewConnection: true,
+          });
+        }
+
+        await db.runAsync("BEGIN TRANSACTION"); // Start transaction
+
+        await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS app_config (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          value TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS currencies (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL UNIQUE,
+          symbol TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS categories (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL UNIQUE,
+          created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS expense_items (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          price REAL NOT NULL,
+          quantity INTEGER NOT NULL,
+          category_id INTEGER NOT NULL,
+          currency_id INTEGER NOT NULL,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (category_id) REFERENCES categories(id),
+          FOREIGN KEY (currency_id) REFERENCES currencies(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS todos (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL,
+          description TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          completed INTEGER DEFAULT 0,
+          deadline TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS memos (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL,
+          description TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        );
+      `);
+
+        await db.runAsync("COMMIT"); // Commit the transaction
+        console.log("All tables created successfully.");
+        return db; // Exit loop on success
+      } catch (error) {
+        if (db) {
+          await db.runAsync("ROLLBACK"); // Rollback only if db exists
+        }
+        console.error(`appInit() failed (Attempt ${attempt}): `, error);
+
+        if (attempt < retries) {
+          await new Promise((resolve) => setTimeout(resolve, delay)); // Wait before retrying
+        } else {
+          throw new Error(
+            "Database initialization failed after multiple retries."
+          );
+        }
+      }
+    }
+  }
+
   static async init() {
     if (!this.db) {
       this.db = await SQLite.openDatabaseAsync(DATABASE_NAME, {
